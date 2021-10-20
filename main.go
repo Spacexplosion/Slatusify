@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/getlantern/systray"
@@ -10,7 +11,10 @@ import (
 const defaultTitle = "Slatusify"
 
 var pollTicker time.Ticker
-var currentStatus PlayStatus
+var isSpotifyRunning bool
+var currentSpotifyStatus PlayStatus
+
+var logger *log.Logger = log.Default()
 
 // Set up systray menu
 func onReady() {
@@ -25,24 +29,41 @@ func onReady() {
 	mQuit.Enable()
 }
 
+// Set state on changed player status
 func setNewStatus(status PlayStatus) {
-	var infoStr string
+	infoStr := fmt.Sprintf("%s - %s", status.artist, status.track)
+	logger.Printf("Player is %s: %s\n", status.state, infoStr)
 	if status.playing {
-		infoStr = fmt.Sprintf("%s - %s", status.artist, status.track)
 		systray.SetTitle(infoStr)
 	} else {
 		systray.SetTitle(defaultTitle)
 	}
-	currentStatus = status
+	currentSpotifyStatus = status
 }
 
+// Poll for state changes
 func runStatusPolling() {
 	pollTicker = *time.NewTicker(1000000000)
-	for tick := range pollTicker.C {
-		status := getPlayStatus()
-		if currentStatus != status {
-			fmt.Printf("%s Player is %s: %s - %s\n", tick.Format(time.RFC3339), status.state, status.artist, status.track)
-			setNewStatus(status)
+
+	defer func() {
+		err := recover()
+		if err != nil {
+			pollTicker.Stop()
+			isSpotifyRunning = false
+			logger.Println(err)
+			logger.Println("Restarting polling...")
+			go runStatusPolling()
+		}
+	}()
+
+	for range pollTicker.C {
+		if isSpotifyRunning {
+			status := getPlayStatus()
+			if currentSpotifyStatus != status {
+				setNewStatus(status)
+			}
+		} else {
+			isSpotifyRunning = isPlayerRunning()
 		}
 	}
 }
@@ -53,7 +74,7 @@ func main() {
 }
 
 func exit() {
-	fmt.Println(time.Now().Format(time.RFC3339), "Exiting...")
+	logger.Println("Exiting...")
 	pollTicker.Stop()
 	systray.Quit()
 }

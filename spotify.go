@@ -1,8 +1,13 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/andybrewer/mack"
+	"github.com/ghetzel/go-stockutil/sliceutil"
 )
+
+const appName = "Spotify"
 
 type PlayStatus struct {
 	playing bool
@@ -11,27 +16,38 @@ type PlayStatus struct {
 	track   string
 }
 
+func isPlayerRunning() bool {
+	procList, procListErr := mack.Tell("System Events", "name of processes")
+	if procListErr != nil {
+		panic(procListErr)
+	}
+	procNames := strings.Split(procList, ",")
+	for i, n := range procNames {
+		procNames[i] = strings.TrimLeft(n, " ")
+	}
+	return sliceutil.ContainsString(procNames, appName)
+}
+
 func getPlayStatus() PlayStatus {
 	var status PlayStatus
-	stateResponse, stateErr := mack.Tell("Spotify", "player state")
+	state, stateErr := mack.Tell(appName, "player state")
 	if stateErr != nil {
 		panic(stateErr)
 	}
-	status.state = stateResponse
-	status.playing = stateResponse == "playing"
+	status.state = state
+	status.playing = state == "playing"
 
 	if status.playing {
-		trackResponse, trackErr := mack.Tell("Spotify", "artist of current track")
+		var trackErr error
+		status.artist, trackErr = mack.Tell(appName, "artist of current track")
 		if trackErr != nil {
 			panic(trackErr)
 		}
-		status.artist = trackResponse
 
-		trackResponse, trackErr = mack.Tell("Spotify", "name of current track")
+		status.track, trackErr = mack.Tell(appName, "name of current track")
 		if trackErr != nil {
 			panic(trackErr)
 		}
-		status.track = trackResponse
 	}
 	return status
 }
