@@ -3,24 +3,33 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/getlantern/systray"
 )
 
-const defaultTitle = "Slatusify"
+const defaultTooltip = "Slatusify"
 
 var pollTicker time.Ticker
 var isSpotifyRunning bool
 var currentSpotifyStatus PlayStatus
 
 var logger *log.Logger = log.Default()
+var iconData []byte
+
+func loadAssets() {
+	var ioErr error
+	iconData, ioErr = os.ReadFile("../Resources/icon.png")
+	if ioErr != nil {
+		panic(ioErr)
+	}
+}
 
 // Set up systray menu
 func onReady() {
-	// systray.SetIcon(icon.Data)
-	systray.SetTitle(defaultTitle)
-	systray.SetTooltip("Set Slack status to what's playing on Spotify")
+	systray.SetIcon(iconData)
+	systray.SetTooltip(defaultTooltip)
 	mQuit := systray.AddMenuItem("Quit", "")
 	go func() { // mQuit handler
 		_ = <-mQuit.ClickedCh
@@ -34,9 +43,9 @@ func setNewStatus(status PlayStatus) {
 	infoStr := fmt.Sprintf("%s - %s", status.artist, status.track)
 	logger.Printf("Player is %s: %s\n", status.state, infoStr)
 	if status.playing {
-		systray.SetTitle(infoStr)
+		systray.SetTooltip(infoStr)
 	} else {
-		systray.SetTitle(defaultTitle)
+		systray.SetTooltip(status.state)
 	}
 	currentSpotifyStatus = status
 }
@@ -69,6 +78,7 @@ func runStatusPolling() {
 }
 
 func main() {
+	loadAssets()
 	go runStatusPolling()
 	systray.Run(onReady, nil)
 }
