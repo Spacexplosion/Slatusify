@@ -1,0 +1,31 @@
+<html>
+    <header><script lang="js">
+        const query = new URL(window.location).searchParams;
+        const code = query.get('code');
+        fetch('http://localhost:51401/getCreds').then(async respCreds => {
+            let creds = {};
+            if (respCreds.ok) {
+                document.body.innerText = 'Sending OAuth...';
+                creds = await respCreds.json();
+                try {
+                    const respAuth = await fetch(`https://slack.com/api/oauth.access?client_id=${creds.ClientId}&client_secret=${creds.ClientSecret}&code=${code}`);
+                    if (respAuth.ok) {
+                        document.body.innerText = 'Saving auth token...';
+                        const authData = await respAuth.json();
+                        console.log('got', authData);
+                        const respDone = await fetch(`http://localhost:51401/finish?token=${authData['access_token']}`);
+                        document.body.innerText = 'Done. Close this tab.';
+                    } else {
+                        throw new Error("OAuth response NOT OK");
+                    }
+                } catch (e) {
+                    console.error('fetch error', e);
+                    document.body.innerHTML = '<span style="color:red">Fetch error; see console</span>';
+                }
+            } else {
+                document.body.innerHTML = '<span style="color:red">Failed client GET</span>';
+            }
+        });
+    </script></header>
+    <body>Getting client ID...</body>
+</html>

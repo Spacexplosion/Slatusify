@@ -6,6 +6,7 @@ require (
 	github.com/andybrewer/mack v0.0.0-20200226161639-15be3d47cc54
 	github.com/getlantern/systray v1.1.0
 	github.com/ghetzel/go-stockutil v1.9.13
+	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 )
 
 require (
