@@ -68,12 +68,21 @@ func onReady() {
 func setNewStatus(status PlayStatus) {
 	infoStr := fmt.Sprintf("%s - %s", status.artist, status.track)
 	logger.Printf("Player is %s: %s\n", status.state, infoStr)
+
+	var nextStatus string
 	if status.playing {
+		nextStatus = infoStr
 		systray.SetTooltip(infoStr)
 	} else {
 		systray.SetTooltip(status.state)
 	}
-	currentSpotifyStatus = status
+
+	setOk, setErr := setSlackStatus(nextStatus)
+	if setOk {
+		currentSpotifyStatus = status
+	} else {
+		logger.Println("Set failed", setErr)
+	}
 }
 
 // Poll for state changes

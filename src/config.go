@@ -10,10 +10,27 @@ var configDirPath = configRootDir + "/.slatusify/"
 var configPath = configDirPath + "config.json"
 
 type Config struct {
-	OauthToken string
+	OauthToken  string
+	StatusEmoji string
 }
 
-var config Config = Config{}
+var config Config = readConfig()
+
+func readConfig() Config {
+	conf := Config{}
+	configContents, ioErr := os.ReadFile(configPath)
+	if ioErr == nil {
+		json.Unmarshal(configContents, &conf)
+	} else {
+		logger.Println("Config read fail:", ioErr)
+	}
+
+	// set defaults
+	if conf.StatusEmoji == "" {
+		conf.StatusEmoji = ":headphones:"
+	}
+	return conf
+}
 
 func (self Config) store() {
 	dirInfo, _ := os.Stat(configDirPath)

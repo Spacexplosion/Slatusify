@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -55,6 +57,60 @@ func doSlackRegistration() {
 	open.Start(fmt.Sprintf("https://slack.com/oauth/authorize?client_id=%s&scope=client&redirect_uri=http%%3A%%2F%%2Flocalhost%%3A51401%%2Foauth", slackClientCreds.ClientId))
 }
 
-func setSlackStatus(status string) {
-	// todo
+const statusEndpoint = "https://slack.com/api/users.profile.set"
+
+type ProfileEntry struct {
+	StatusText  string `json:"status_text"`
+	StatusEmoji string `json:"status_emoji"`
+}
+
+type profileSetResult struct {
+	Ok      bool         `json:"ok"`
+	Profile ProfileEntry `json:"profile"`
+	Error   string       `json:"error"`
+}
+
+func setSlackStatus(status string) (bool, error) {
+	var emoji string
+	if status != "" { // empty means unsetting status
+		emoji = config.StatusEmoji
+	}
+
+	body := make(map[string]ProfileEntry)
+	body["profile"] = ProfileEntry{
+		StatusText:  status,
+		StatusEmoji: emoji,
+	}
+	bodyData, _ := json.Marshal(body)
+
+	request, reqError := http.NewRequest(http.MethodPost, statusEndpoint, bytes.NewBuffer(bodyData))
+	if reqError == nil {
+		request.Header.Add("Authorization", "Bearer "+config.OauthToken)
+		request.Header.Add("Content-Type", "application/json; charset=UTF-8")
+		response, httpErr := http.DefaultClient.Do(request)
+		if httpErr == nil {
+			var result profileSetResult
+			logger.Println("Status set -", response.Status)
+			if response.StatusCode == http.StatusOK {
+				resultData, buffErr := ioutil.ReadAll(response.Body)
+				if buffErr != nil {
+					return false, buffErr
+				}
+				if parseErr := json.Unmarshal(resultData, &result); parseErr != nil {
+					return false, parseErr
+				}
+				if !result.Ok {
+					return false, fmt.Errorf("Slack API Error: %s", result.Error)
+				}
+				return true, nil
+			}
+			// else
+			return false, fmt.Errorf("HTTP status %s", response.Status)
+		}
+		// else
+		return false, httpErr
+	}
+	// else
+	logger.Fatalln("Failed to build Slack request", reqError)
+	return false, reqError
 }
